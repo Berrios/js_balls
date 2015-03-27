@@ -11,14 +11,15 @@
 	<svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
 
 	<script>
-	console.log(this);
-
-	function Circle(cx, cy, html_id)
+	
+	function Circle(cx, cy, html_id, z)
 	{
+		var n = Math.floor(z / 10);
+
 		var html_id = html_id;
-		this.info = { cx: cx,  cy: cy };
-		
-		//private function that generates a random number
+		this.info = { cx: cx,  cy: cy, radius: n, id: html_id};
+
+		// private function that generates a random number
 		var randomNumberBetween = function(min, max){
 			return Math.random()*(max-min) + min;
 		}
@@ -34,7 +35,7 @@
 			var circle = makeSVG('circle', 
 				{ 	cx: this.info.cx,
 				  	cy: this.info.cy,
-				  	r:  10,
+				  	r:  n,
 				  	id: html_id,
 				  	style: "fill: black"
 				});
@@ -46,18 +47,14 @@
 			var el = document.getElementById(html_id);
 
 			//see if the circle is going outside the browser. if it is, reverse the velocity
-			if( this.info.cx > document.body.clientWidth - 10 || this.info.cx < 10)
+			if( this.info.cx > document.body.clientWidth - n || this.info.cx < n)
 			{
 				this.info.velocity.x = this.info.velocity.x * -1;
 			}
-			if( this.info.cy > document.body.clientHeight - 10 || this.info.cy < 10)
+			if( this.info.cy > document.body.clientHeight - n || this.info.cy < n)
 			{
 				this.info.velocity.y = this.info.velocity.y * -1;
 			}
-				
-			//console.log(el);
-			console.log(el.getAttribute('cx'));
-			// console.log(el.getAttribute('cy'));
 
 			this.info.cx = this.info.cx + this.info.velocity.x*time;
 			this.info.cy = this.info.cy + this.info.velocity.y*time;
@@ -69,13 +66,15 @@
 
 		//creates the SVG element and returns it
 		var makeSVG = function(tag, attrs) {
-	        var el= document.createElementNS('http://www.w3.org/2000/svg', tag);
+		
+        var el= document.createElementNS('http://www.w3.org/2000/svg', tag);
 	        for (var k in attrs)
 	        {
-	            el.setAttribute(k, attrs[k]);
+	          el.setAttribute(k, attrs[k]);
 	        }
-	        return el;
+        	return el;
 	    }
+
 
 	    this.initialize();
 	}
@@ -85,16 +84,62 @@
 		var counter = 0;  //counts the number of circles created
 		var circles = [ ]; //array that will hold all the circles created in the app
 
-		//a loop that updates the circle's position on the screen
-		this.loop = function(){
-			for(circle in circles)
+
+	    function collision(){
+
+		//collision check on all balls in sequence, could use sector trees for efficiency
+		//balls shrink and disappear if they touch
+		//Don't use a regular for loop, use a for in loop (actually, you'll want to use two of hese!).
+
+			for(c1 in circles)
 			{
-				circles[circle].update(1);
+				for(c2 in circles){
+					if(c1 == c2)
+					{
+						continue;
+					}
+
+				  	var distance = Math.sqrt(
+			            ((circles[c1].info.cx - circles[c2].info.cx) * (circles[c1].info.cx - circles[c2].info.cx))
+			          + ((circles[c1].info.cy - circles[c2].info.cy) * (circles[c1].info.cy - circles[c2].info.cy))
+			        );
+
+				  	if (distance <= circles[c1].info.radius + circles[c2].info.radius)
+				  	{
+				  		//delete svg element
+				  		var el1 = document.getElementById(circles[c1].info.id);
+				  		var el2 = document.getElementById(circles[c2].info.id);
+				  		el1.remove();
+				  		el2.remove();
+
+				  		//remove from array
+				  		var inx1 = circles.indexOf(circles[c1]);
+				  		var inx2 = circles.indexOf(circles[c2]);
+				  		delete circles[inx1];
+				  		delete circles[inx2];
+				  	}
+			  	}
 			}
 		}
 
-		this.createNewCircle = function(x,y){
-			var new_circle = new Circle(x,y,counter++);
+		//a loop that updates the circle's position on the screen
+		this.loop = function(){
+
+			for(circle in circles)
+			{
+				
+				// console.log(circles[circle].info.cx);
+				// console.log(circles[circle].info.cy);
+				circles[circle].update(1);
+				// console.log("The radius of circle ID:"+circles[circle].info.id + " is " + circles[circle].info.radius);
+				collision();
+			}
+		}
+		
+		
+
+		this.createNewCircle = function(x,y,z){
+			var new_circle = new Circle(x,y,counter++, z);
 			circles.push(new_circle);
 			// console.log('created a new circle!', new_circle);
 		}
@@ -106,10 +151,21 @@
 	var playground = new PlayGround();
 	setInterval(playground.loop, 15);
 
-	document.onclick = function(e) {
-		playground.createNewCircle(e.x,e.y);
+	var mousedown_time;
+
+	function getTime(){
+		var date = new Date();
+		return date.getTime();
 	}
-	
+
+	document.onmousedown = function(e){
+		mousedown_time = getTime();
+	}
+	document.onmouseup = function(e){
+		time_pressed = getTime() - mousedown_time;
+		playground.createNewCircle(e.x,e.y,time_pressed);
+	}
+
 	</script>
 </body>
 </html>
